@@ -45,7 +45,6 @@ struct MeetingJoinSheet: View {
                     HStack(spacing: 12) {
                         languageButton(.ukrainian)
                         languageButton(.english)
-                        languageButton(.polish)
                     }
                 }
             }
@@ -81,7 +80,6 @@ struct MeetingJoinSheet: View {
         switch language {
         case .english:   return "e"
         case .ukrainian: return "u"
-        case .polish:    return "p"
         }
     }
 }

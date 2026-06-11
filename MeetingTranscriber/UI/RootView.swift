@@ -100,7 +100,6 @@ struct RootView: View {
         ) {
             Button("🇺🇦 Українська") { startImport(language: .ukrainian) }
             Button("🇬🇧 English") { startImport(language: .english) }
-            Button("🇵🇱 Polski") { startImport(language: .polish) }
             Button("Cancel", role: .cancel) { pendingImportURL = nil }
         }
         .alert(

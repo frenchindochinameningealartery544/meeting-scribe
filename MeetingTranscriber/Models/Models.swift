@@ -3,21 +3,18 @@ import Foundation
 enum TranscriptionLanguage: String, CaseIterable, Codable, Identifiable, Hashable {
     case english   = "en"
     case ukrainian = "uk"
-    case polish    = "pl"
 
     var id: String { rawValue }
     var displayName: String {
         switch self {
         case .english:   return "English"
         case .ukrainian: return "Українська"
-        case .polish:    return "Polski"
         }
     }
     var flag: String {
         switch self {
         case .english:   return "🇬🇧"
         case .ukrainian: return "🇺🇦"
-        case .polish:    return "🇵🇱"
         }
     }
 }

@@ -57,9 +57,7 @@ final class AppState {
 
     // MARK: – Summarization settings (persisted via SummaryStore)
     var defaultModelEnglish: LanguageModel = SummaryStore.loadDefaultModel(for: .english)
-    var defaultModelPolish:  LanguageModel = SummaryStore.loadDefaultModel(for: .polish)
     var systemPromptEnglish: String        = SummaryStore.loadSystemPrompt(for: .english)
-    var systemPromptPolish:  String        = SummaryStore.loadSystemPrompt(for: .polish)
     var downloadedModelIDs:  Set<String>   = SummaryStore.loadDownloadedIDs()
 
     /// User's display name. When non-empty, the `summarize` identification
@@ -75,7 +73,6 @@ final class AppState {
     func setDefaultModel(_ model: LanguageModel, for language: TranscriptionLanguage) {
         switch language {
         case .english, .ukrainian: defaultModelEnglish = model
-        case .polish:              defaultModelPolish = model
         }
         SummaryStore.saveDefaultModel(model, for: language)
     }
@@ -93,7 +90,6 @@ final class AppState {
     func setSystemPrompt(_ text: String, for language: TranscriptionLanguage) {
         switch language {
         case .english, .ukrainian: systemPromptEnglish = text
-        case .polish:              systemPromptPolish = text
         }
         SummaryStore.saveSystemPrompt(text, for: language)
     }
@@ -237,8 +233,8 @@ final class AppState {
         let language = doc.language
         let resolvedModel: LanguageModel = model
             ?? doc.summaryModelOverride
-            ?? (language == .polish ? defaultModelPolish : defaultModelEnglish)
-        let basePrompt = language == .polish ? systemPromptPolish : systemPromptEnglish
+            ?? defaultModelEnglish
+        let basePrompt = systemPromptEnglish
         let glossaryAppendix: String? = useGlossary
             ? SummaryPrompts.glossaryBlock(for: language, terms: glossaryTerms)
             : nil

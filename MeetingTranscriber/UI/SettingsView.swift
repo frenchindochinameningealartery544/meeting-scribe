@@ -198,9 +198,7 @@ private struct DictionarySettingsView: View {
 private struct SummarySettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var englishPromptDraft: String = ""
-    @State private var polishPromptDraft: String = ""
     @State private var englishPromptSaved: Bool = false
-    @State private var polishPromptSaved: Bool = false
     @State private var selectedGlossaryIDs: Set<UUID> = []
     @State private var newGlossaryTerm: String = ""
     @State private var newGlossaryDefinition: String = ""
@@ -224,26 +222,18 @@ private struct SummarySettingsView: View {
             }
 
             Section {
-                Picker("English", selection: Binding(
+                Picker("Summary model", selection: Binding(
                     get: { appState.defaultModelEnglish },
                     set: { appState.setDefaultModel($0, for: .english) }
                 )) {
-                    ForEach(LanguageModel.allCases.filter { $0.supportedLanguages.contains(.english) }) { m in
-                        Text(m.displayName).tag(m)
-                    }
-                }
-                Picker("Polish", selection: Binding(
-                    get: { appState.defaultModelPolish },
-                    set: { appState.setDefaultModel($0, for: .polish) }
-                )) {
-                    ForEach(LanguageModel.allCases.filter { $0.supportedLanguages.contains(.polish) }) { m in
+                    ForEach(LanguageModel.allCases) { m in
                         Text(m.displayName).tag(m)
                     }
                 }
             } header: {
-                Text("Default model per language")
+                Text("Default summary model")
             } footer: {
-                Text("The matching model is used automatically based on the transcript's language.")
+                Text("Used automatically for every transcript when you run a local summary.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -262,7 +252,7 @@ private struct SummarySettingsView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("English (Qwen3.5)").font(.subheadline).foregroundStyle(.secondary)
+                    Text("Qwen3.5").font(.subheadline).foregroundStyle(.secondary)
                     TextEditor(text: $englishPromptDraft)
                         .font(.body)
                         .frame(minHeight: 64)
@@ -282,29 +272,8 @@ private struct SummarySettingsView: View {
                         .disabled(englishPromptDraft == appState.systemPromptEnglish)
                     }
                 }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Polish (Bielik)").font(.subheadline).foregroundStyle(.secondary)
-                    TextEditor(text: $polishPromptDraft)
-                        .font(.body)
-                        .frame(minHeight: 64)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
-                    HStack {
-                        Spacer()
-                        Button("Reset") {
-                            polishPromptDraft = SummaryStore.defaultSystemPrompt(for: .polish)
-                            appState.setSystemPrompt(polishPromptDraft, for: .polish)
-                        }
-                        .controlSize(.small)
-                        Button(polishPromptSaved ? "Saved ✓" : "Save") {
-                            appState.setSystemPrompt(polishPromptDraft, for: .polish)
-                            flash(\.polishPromptSaved)
-                        }
-                        .controlSize(.small)
-                        .disabled(polishPromptDraft == appState.systemPromptPolish)
-                    }
-                }
             } header: {
-                Text("System prompts")
+                Text("System prompt")
             }
 
             Section {
@@ -370,7 +339,6 @@ private struct SummarySettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             englishPromptDraft = appState.systemPromptEnglish
-            polishPromptDraft  = appState.systemPromptPolish
         }
     }
 
@@ -392,12 +360,6 @@ private struct SummarySettingsView: View {
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1200))
                 englishPromptSaved = false
-            }
-        case \SummarySettingsView.polishPromptSaved:
-            polishPromptSaved = true
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(1200))
-                polishPromptSaved = false
             }
         default: break
         }

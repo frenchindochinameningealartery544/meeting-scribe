@@ -9,11 +9,11 @@ enum DictionaryStore {
     private static let replacementsKey = "Dictionary.WordReplacements"
     private static let glossaryKey     = "Dictionary.Glossary"
 
-    /// Light greeting sentences style-prime Whisper for punctuation/casing
-    /// and (for Polish) diacritics. Pattern taken from VoiceInk.
+    /// Light greeting sentences style-prime Whisper for punctuation/casing.
+    /// Pattern taken from VoiceInk.
     static let defaultPrimes: [String: String] = [
         "en": "Hello, how are you doing? Nice to meet you.",
-        "pl": "Cześć, jak się masz? Miło cię poznać."
+        "uk": "Привіт, як справи? Радий познайомитися."
     ]
 
     static func loadPrimes() -> [String: String] {

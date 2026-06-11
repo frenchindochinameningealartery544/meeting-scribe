@@ -256,10 +256,7 @@ struct TranscriptDetailView: View {
     /// on the document. Both the summary pass and the title pass use it.
     @ViewBuilder
     private func summaryModelMenu(for doc: TranscriptDocument) -> some View {
-        let language = doc.language
-        let langDefault: LanguageModel = (language == .polish)
-            ? appState.defaultModelPolish
-            : appState.defaultModelEnglish
+        let langDefault: LanguageModel = appState.defaultModelEnglish
         let effective = doc.summaryModelOverride ?? langDefault
         // Per-meeting override is explicit user intent — list every model.
         // The Settings defaults are still filtered by supportedLanguages.
