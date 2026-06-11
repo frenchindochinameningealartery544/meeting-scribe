@@ -32,6 +32,10 @@
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Meeting Transcriber asks Arc, Safari, and Chrome for the current tab URL to detect meetings you join.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Meeting Transcriber reads your calendar to remind you when a call is about to start and offer to record it.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Meeting Transcriber reads your calendar to remind you when a call is about to start.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Needed only if you import files from the Desktop.</string>
 	<key>NSDocumentsFolderUsageDescription</key>

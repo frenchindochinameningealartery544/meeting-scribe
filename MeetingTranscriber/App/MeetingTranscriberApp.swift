@@ -51,6 +51,7 @@ struct MeetingTranscriberApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Foundation.Notification) {
         MCPLocalServer.shared.start()
+        NotificationManager.shared.configure()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -59,5 +60,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Foundation.Notification) {
         MCPLocalServer.shared.stop()
+        CalendarMonitor.shared.stop()
     }
 }

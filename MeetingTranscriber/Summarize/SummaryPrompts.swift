@@ -26,6 +26,9 @@ enum SummaryPrompts {
         case .english:
             intro = "Below is a meeting transcript with placeholder speaker labels. For each label, infer the speaker's real name only if the conversation clearly indicates it (e.g. they are addressed by name). Reply with one line per label in the exact format:"
             unknown = "If no name is clearly indicated for a label, write 'unknown'. Do not invent names. Do not add any other commentary."
+        case .ukrainian:
+            intro = "Нижче наведено транскрипт зустрічі з тимчасовими позначками спікерів. Для кожної позначки визнач справжнє ім'я спікера, лише якщо розмова це чітко вказує (наприклад, до нього звертаються на ім'я). Відповідай рівно одним рядком на позначку у форматі:"
+            unknown = "Якщо ім'я для позначки чітко не вказане, напиши 'unknown'. Не вигадуй імен. Не додавай жодних коментарів."
         case .polish:
             intro = "Poniżej znajduje się transkrypcja spotkania z zastępczymi etykietami mówców. Dla każdej etykiety podaj prawdziwe imię, tylko jeśli rozmowa jasno to wskazuje (np. ktoś zwraca się po imieniu). Odpowiedz dokładnie jedną linią na etykietę w formacie:"
             unknown = "Jeśli żadne imię nie jest jasno wskazane dla danej etykiety, napisz 'unknown'. Nie wymyślaj imion. Nie dodawaj żadnego komentarza."
@@ -83,6 +86,8 @@ enum SummaryPrompts {
         switch language {
         case .english:
             return "Write a concise summary of the meeting transcript below in 3–6 sentences. No bullets, no headers — one flowing paragraph."
+        case .ukrainian:
+            return "Напиши стислий підсумок транскрипту зустрічі нижче у 3–6 реченнях. Без списків, без заголовків — один суцільний абзац."
         case .polish:
             return "Napisz zwięzłe streszczenie poniższej transkrypcji spotkania w 3–6 zdaniach. Bez wypunktowań, bez nagłówków — jeden płynny akapit."
         }
@@ -99,6 +104,16 @@ enum SummaryPrompts {
                 • No quotes, no trailing punctuation, no preamble.
                 • Prefer concrete nouns from the meeting (project, topic, decision) over generic words like "Discussion" or "Meeting".
                 • Output the title on a single line. Nothing else.
+                """
+        case .ukrainian:
+            return """
+                Згенеруй стислий заголовок зустрічі на основі транскрипту нижче.
+
+                Правила:
+                • 3–8 слів, з великої літери там, де це природно.
+                • Без лапок, без крапки в кінці, без вступу.
+                • Надавай перевагу конкретним іменникам зі зустрічі (проєкт, тема, рішення) замість загальних слів на кшталт «Обговорення» чи «Зустріч».
+                • Виведи заголовок одним рядком. Нічого більше.
                 """
         case .polish:
             return """

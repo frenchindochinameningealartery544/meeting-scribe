@@ -8,7 +8,7 @@ import AppKit
 final class AppState {
     // MARK: – Settings
     var selectedModel: WhisperModel = .largeV3Turbo
-    var defaultLanguage: TranscriptionLanguage = .english
+    var defaultLanguage: TranscriptionLanguage = .ukrainian
     var captureSystemAudio: Bool = true
 
     // MARK: – Dictionary (persisted via DictionaryStore)
@@ -74,8 +74,8 @@ final class AppState {
 
     func setDefaultModel(_ model: LanguageModel, for language: TranscriptionLanguage) {
         switch language {
-        case .english: defaultModelEnglish = model
-        case .polish:  defaultModelPolish = model
+        case .english, .ukrainian: defaultModelEnglish = model
+        case .polish:              defaultModelPolish = model
         }
         SummaryStore.saveDefaultModel(model, for: language)
     }
@@ -92,8 +92,8 @@ final class AppState {
 
     func setSystemPrompt(_ text: String, for language: TranscriptionLanguage) {
         switch language {
-        case .english: systemPromptEnglish = text
-        case .polish:  systemPromptPolish = text
+        case .english, .ukrainian: systemPromptEnglish = text
+        case .polish:              systemPromptPolish = text
         }
         SummaryStore.saveSystemPrompt(text, for: language)
     }
@@ -588,6 +588,8 @@ final class AppState {
         didBootstrap = true
         await loadTranscripts()
         startMeetingDetection()
+        observeStartRecordingNotifications()
+        CalendarMonitor.shared.start()
     }
 
     func loadTranscripts() async {
@@ -608,10 +610,38 @@ final class AppState {
                 if self.dismissedMeetingURLs.contains(meeting.url) { return }
                 if self.recordingState.isBusy { return }
                 self.detectedMeeting = meeting
+                // OS-level reminder so it surfaces even when the app is in the
+                // background / menu bar, not just the in-app sheet.
+                NotificationManager.shared.notifyMeetingStarting(
+                    title: "🎙 Виявлено зустріч",
+                    body: "«\(meeting.title)» — натисни «Почати запис»",
+                    meetingURL: meeting.url
+                )
             }
         }
         det.start()
         self.detector = det
+    }
+
+    /// Listens for the "Record now" action fired from a notification (calendar
+    /// reminder or browser detection) and starts recording in the default
+    /// language.
+    private func observeStartRecordingNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: NotificationManager.startRecordingNote,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let url = note.userInfo?["url"] as? String
+            Task { @MainActor in
+                guard let self else { return }
+                if self.recordingState.isBusy { return }
+                let meeting = url.map {
+                    DetectedMeeting(title: "Calendar meeting", platform: "Calendar", url: $0, detectedAt: Date())
+                }
+                await self.startRecording(language: self.defaultLanguage, meeting: meeting)
+            }
+        }
     }
 
     func dismissDetectedMeeting() {

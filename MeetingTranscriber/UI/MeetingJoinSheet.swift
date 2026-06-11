@@ -43,6 +43,7 @@ struct MeetingJoinSheet: View {
 
                 GlassEffectContainer(spacing: 12) {
                     HStack(spacing: 12) {
+                        languageButton(.ukrainian)
                         languageButton(.english)
                         languageButton(.polish)
                     }
@@ -73,6 +74,14 @@ struct MeetingJoinSheet: View {
         .buttonStyle(.glassProminent)
         .controlSize(.extraLarge)
         .tint(.red)
-        .keyboardShortcut(language == .english ? "e" : "p", modifiers: [.command])
+        .keyboardShortcut(shortcutKey(for: language), modifiers: [.command])
+    }
+
+    private func shortcutKey(for language: TranscriptionLanguage) -> KeyEquivalent {
+        switch language {
+        case .english:   return "e"
+        case .ukrainian: return "u"
+        case .polish:    return "p"
+        }
     }
 }
