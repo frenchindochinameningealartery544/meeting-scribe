@@ -154,18 +154,37 @@ struct RecordView: View {
 
                 if let job = appState.activeJob,
                    case .running(let progress, let stage) = job.stage {
+                    // CoreML never reports model-compilation progress, so during
+                    // the "Loading" phase a determinate bar would freeze near 0%
+                    // and read as hung. Show an indeterminate bar plus a live
+                    // elapsed timer and a one-time-cost note instead; switch to a
+                    // real % bar once actual transcription work is reporting.
+                    let isLoading = stage.hasPrefix("Loading")
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text(job.title)
                                 .font(.subheadline.weight(.medium))
                                 .lineLimit(1)
                             Spacer()
-                            Text(stage)
+                            Text(isLoading ? stage : "\(stage) · \(Int(progress * 100))%")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .monospacedDigit()
                         }
-                        ProgressView(value: progress)
-                            .progressViewStyle(.linear)
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                            TimelineView(.periodic(from: .now, by: 1)) { context in
+                                let elapsed = max(0, Int(context.date.timeIntervalSince(job.createdAt)))
+                                Text("First run compiles the model for the Neural Engine — one-time, then it's fast.  ⏱ \(elapsed / 60):\(String(format: "%02d", elapsed % 60))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .monospacedDigit()
+                            }
+                        } else {
+                            ProgressView(value: progress)
+                                .progressViewStyle(.linear)
+                        }
                     }
                 } else {
                     HStack(spacing: 8) {
