@@ -39,6 +39,16 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable, Hashable {
         case .largeV3:      return "large-v3"
         }
     }
+
+    /// Default transcription model per language. Ukrainian leans on the more
+    /// accurate full large-v3; other languages use the much faster turbo
+    /// variant. The user can still override via the Model picker.
+    static func preferred(for language: TranscriptionLanguage) -> WhisperModel {
+        switch language {
+        case .ukrainian: return .largeV3
+        case .english:   return .largeV3Turbo
+        }
+    }
 }
 
 struct DetectedMeeting: Equatable, Hashable, Identifiable {

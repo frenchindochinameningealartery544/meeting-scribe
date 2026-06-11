@@ -7,8 +7,17 @@ import AppKit
 @Observable
 final class AppState {
     // MARK: – Settings
-    var selectedModel: WhisperModel = .largeV3Turbo
-    var defaultLanguage: TranscriptionLanguage = .ukrainian
+    var selectedModel: WhisperModel = WhisperModel.preferred(for: .ukrainian)
+    var defaultLanguage: TranscriptionLanguage = .ukrainian {
+        didSet {
+            // Keep the transcription model in step with the language default:
+            // Ukrainian → large-v3 (more accurate), others → turbo (faster).
+            // Fires only on an actual change, so a manual model pick survives
+            // until the user switches language again.
+            guard oldValue != defaultLanguage else { return }
+            selectedModel = WhisperModel.preferred(for: defaultLanguage)
+        }
+    }
     var captureSystemAudio: Bool = true
 
     // MARK: – Dictionary (persisted via DictionaryStore)
