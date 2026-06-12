@@ -95,4 +95,4 @@ targets:
         NSDownloadsFolderUsageDescription: "Needed only if you import files from Downloads."
         NSSupportsAutomaticTermination: true
         NSSupportsSuddenTermination: false
-        LSUIElement: false
+        LSUIElement: true
