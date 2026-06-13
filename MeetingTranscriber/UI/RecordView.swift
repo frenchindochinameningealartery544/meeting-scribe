@@ -12,15 +12,21 @@ struct RecordView: View {
                 stateCard
                 controls
                 liveTranslateSection
-                if appState.isProcessing {
-                    processingPanel
-                }
                 Spacer(minLength: 0)
             }
             .padding(28)
             .frame(maxWidth: 820)
             .frame(maxWidth: .infinity)
         }
+        .overlay(alignment: .bottomTrailing) {
+            if appState.isProcessing {
+                processingPanel
+                    .frame(maxWidth: 360)
+                    .padding(20)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: appState.isProcessing)
     }
 
     // MARK: – Header
@@ -88,7 +94,7 @@ struct RecordView: View {
         VStack(spacing: 18) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(Theme.accent)
+                    .fill(Theme.record)
                     .frame(width: 10, height: 10)
                     .opacity(appState.elapsedSeconds.isMultiple(of: 2) ? 1 : 0.35)
                     .animation(.easeInOut(duration: 0.6), value: appState.elapsedSeconds)
@@ -175,6 +181,7 @@ struct RecordView: View {
                         if isLoading {
                             ProgressView()
                                 .progressViewStyle(.linear)
+                                .tint(Theme.accent)
                             TimelineView(.periodic(from: .now, by: 1)) { context in
                                 let elapsed = max(0, Int(context.date.timeIntervalSince(job.createdAt)))
                                 Text("First run compiles the model for the Neural Engine — one-time, then it's fast.  ⏱ \(elapsed / 60):\(String(format: "%02d", elapsed % 60))")
@@ -185,6 +192,7 @@ struct RecordView: View {
                         } else {
                             ProgressView(value: progress)
                                 .progressViewStyle(.linear)
+                                .tint(Theme.accent)
                         }
                     }
                 } else {
@@ -230,7 +238,7 @@ struct RecordView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .controlSize(.extraLarge)
-                .tint(Theme.accent)
+                .tint(Theme.record)
                 .keyboardShortcut("r", modifiers: [.command, .shift])
 
             case .recording:
@@ -254,7 +262,7 @@ struct RecordView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .controlSize(.extraLarge)
-                .tint(Theme.accent)
+                .tint(Theme.record)
                 .keyboardShortcut("r", modifiers: [.command, .shift])
 
             default:
@@ -263,7 +271,7 @@ struct RecordView: View {
         }
     }
 
-    // MARK: – Live translation
+    // MARK: – Live subtitles
     @ViewBuilder
     private var liveTranslateSection: some View {
         switch appState.recordingState {
@@ -284,27 +292,13 @@ struct RecordView: View {
 
         GlassCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
-                    Toggle(isOn: $state.liveTranslateEnabled) {
-                        Label("Live translation", systemImage: "character.bubble")
-                    }
-                    .toggleStyle(.switch)
-
-                    if appState.liveTranslateEnabled {
-                        Spacer()
-                        Picker("Into", selection: $state.liveTargetLanguage) {
-                            ForEach(TargetLanguage.allCases) { lang in
-                                Text("\(lang.flag) \(lang.displayName)").tag(lang)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: 200)
-                    }
+                Toggle(isOn: $state.liveTranslateEnabled) {
+                    Label("Live subtitles", systemImage: "character.bubble")
                 }
+                .toggleStyle(.switch)
 
                 if appState.liveTranslateEnabled && !appState.hasGeminiKey {
-                    Label("Add a Gemini API key in Settings to use live translation.",
+                    Label("Add a Gemini API key in Settings to use live subtitles.",
                           systemImage: "key")
                         .font(.caption)
                         .foregroundStyle(.orange)

@@ -28,11 +28,11 @@ struct CaptionsOverlay: View {
     /// The full current text: the in-progress turn, else the last finalized line.
     private var fullText: String {
         if !appState.liveInProgress.isEmpty { return appState.liveInProgress }
-        if let last = appState.liveCaptions.last { return last.translated }
+        if let last = appState.liveCaptions.last { return last.original }
         switch appState.liveStatus {
         case .connecting: return "Connecting…"
         case .live:       return "Listening…"
-        case .closed(let error): return error == nil ? "" : "Translation error"
+        case .closed(let error): return error == nil ? "" : "Subtitle error"
         }
     }
 

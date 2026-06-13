@@ -62,6 +62,7 @@ struct RootView: View {
             detail
         }
         .navigationSplitViewStyle(.balanced)
+        .tint(Theme.accent)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Live translated captions shown during recording. Translated text is primary;
-/// the recognized original sits underneath, dimmed. Auto-scrolls to the newest.
+/// Live subtitles shown during recording — the original spoken text, transcribed
+/// in real time. Auto-scrolls to the newest line.
 struct LiveTranslatePanel: View {
     @Environment(AppState.self) private var appState
 
@@ -20,11 +20,8 @@ struct LiveTranslatePanel: View {
         HStack(spacing: 8) {
             Image(systemName: "character.bubble.fill")
                 .foregroundStyle(Theme.accent)
-            Text("Live translation")
+            Text("Live subtitles")
                 .font(.headline)
-            Text("\(appState.liveTargetLanguage.flag) \(appState.liveTargetLanguage.displayName)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
             Spacer()
             statusBadge
         }
@@ -66,13 +63,11 @@ struct LiveTranslatePanel: View {
                             .padding(.vertical, 20)
                     }
                     ForEach(appState.liveCaptions) { caption in
-                        captionRow(translated: caption.translated,
-                                   original: caption.original,
-                                   live: false)
+                        captionRow(text: caption.original, live: false)
                             .id(caption.id)
                     }
                     if !appState.liveInProgress.isEmpty {
-                        captionRow(translated: appState.liveInProgress, original: nil, live: true)
+                        captionRow(text: appState.liveInProgress, live: true)
                             .id("inProgress")
                     }
                 }
@@ -91,17 +86,10 @@ struct LiveTranslatePanel: View {
         }
     }
 
-    private func captionRow(translated: String, original: String?, live: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(translated)
-                .font(.body)
-                .foregroundStyle(live ? .secondary : .primary)
-            if let original, !original.isEmpty {
-                Text(original)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private func captionRow(text: String, live: Bool) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundStyle(live ? .secondary : .primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

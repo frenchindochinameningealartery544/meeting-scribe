@@ -57,6 +57,23 @@ final class LiveTranslator {
         }
     }
 
+    /// Original-language lines recognized so far (finalized + in-progress).
+    /// Read on the main queue (same as caption updates).
+    func originalLines() -> [String] {
+        var lines = captions.map(\.original).filter { !$0.isEmpty }
+        let partial = currentOriginal.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !partial.isEmpty { lines.append(partial) }
+        return lines
+    }
+
+    /// Translated lines so far (finalized + in-progress).
+    func translatedLines() -> [String] {
+        var lines = captions.map(\.translated).filter { !$0.isEmpty }
+        let partial = currentTranslated.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !partial.isEmpty { lines.append(partial) }
+        return lines
+    }
+
     func finish() {
         queue.async { [weak self] in
             guard let self else { return }
@@ -85,7 +102,9 @@ final class LiveTranslator {
             let translated = currentTranslated.trimmingCharacters(in: .whitespacesAndNewlines)
             currentOriginal = ""
             currentTranslated = ""
-            guard !translated.isEmpty else { publishInProgress(); return }
+            // Subtitles show the original spoken text, so finalize a line as soon
+            // as the source transcription is non-empty (translation is ignored).
+            guard !original.isEmpty else { publishInProgress(); return }
             captions.append(LiveCaption(original: original, translated: translated))
             onUpdate?(captions, "")
         case .closed(let error):
@@ -94,7 +113,8 @@ final class LiveTranslator {
     }
 
     private func publishInProgress() {
-        onUpdate?(captions, currentTranslated.trimmingCharacters(in: .whitespacesAndNewlines))
+        // The in-progress line is the original source transcription (the subtitle).
+        onUpdate?(captions, currentOriginal.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     // MARK: – Float32 → little-endian Int16 PCM → base64
