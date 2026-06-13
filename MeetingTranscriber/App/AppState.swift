@@ -34,8 +34,37 @@ final class AppState {
     private static let kGeminiKey = "gemini-api-key"
 
     /// Gemini API key, persisted in the Keychain (not UserDefaults).
-    var geminiAPIKey: String = KeychainStore.string(for: AppState.kGeminiKey) ?? "" {
-        didSet { KeychainStore.set(geminiAPIKey, for: Self.kGeminiKey) }
+    ///
+    /// IMPORTANT: this is NOT read from the Keychain in the property initializer.
+    /// `SecItemCopyMatching` can block the calling thread indefinitely waiting on
+    /// `securityd` (e.g. when the binary was re-signed and the Keychain ACL no
+    /// longer matches, so macOS wants to show an authorization dialog that a
+    /// just-launched menu-bar app can't present). Doing that in `AppState.init()`
+    /// — which SwiftUI runs synchronously on the main thread before the first
+    /// scene renders — would deadlock the entire launch: no menu bar, no window,
+    /// no background services, no recovery. Instead we start empty and load the
+    /// key asynchronously off the main thread via `loadGeminiKeyFromKeychain()`.
+    var geminiAPIKey: String = "" {
+        didSet {
+            guard !isLoadingGeminiKey else { return }   // skip persist on async load-in
+            KeychainStore.set(geminiAPIKey, for: Self.kGeminiKey)
+        }
+    }
+    @ObservationIgnored private var isLoadingGeminiKey = false
+
+    /// Read the Gemini key from the Keychain off the main thread and publish it.
+    /// Fire-and-forget from `bootstrap()` — never awaited on the launch path, so a
+    /// hanging `securityd` round-trip can't stall the app.
+    func loadGeminiKeyFromKeychain() {
+        Task { [weak self] in
+            let key = await Task.detached(priority: .utility) {
+                KeychainStore.string(for: AppState.kGeminiKey) ?? ""
+            }.value
+            guard let self, self.geminiAPIKey.isEmpty, !key.isEmpty else { return }
+            self.isLoadingGeminiKey = true
+            self.geminiAPIKey = key
+            self.isLoadingGeminiKey = false
+        }
     }
     var liveTranslateEnabled: Bool = UserDefaults.standard.bool(forKey: "liveTranslateEnabled") {
         didSet { UserDefaults.standard.set(liveTranslateEnabled, forKey: "liveTranslateEnabled") }
@@ -596,6 +625,7 @@ final class AppState {
 
     var processingJobs: [ProcessingJob] = []
     private var processingTask: Task<Void, Never>?
+    private var didRecoverOrphans = false
 
     /// True when at least one job is queued or running.
     var isProcessing: Bool { !processingJobs.isEmpty }
@@ -633,8 +663,64 @@ final class AppState {
     /// process-level services are up (in case the window appeared before
     /// `applicationDidFinishLaunching` wired them).
     func bootstrap() async {
+        loadGeminiKeyFromKeychain()
         startBackgroundServices()
         await loadTranscripts()
+        recoverOrphanedRecordings()
+    }
+
+    /// Re-enqueue recording stems on disk that have no matching transcript —
+    /// e.g. a transcription that never finished because the app was quit mid-job.
+    /// Idempotent: once a recovered transcript saves, its stem is referenced by
+    /// `audioFileName` and skipped on the next launch.
+    private func recoverOrphanedRecordings() {
+        guard !didRecoverOrphans else { return }
+        didRecoverOrphans = true
+        let fm = FileManager.default
+        let dir = TranscriptStore.shared.recordingsDir
+        guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
+        let referenced = Set(transcripts.compactMap { $0.audioFileName })
+        let voiceStems = files
+            .filter { $0.lastPathComponent.hasSuffix(".voice.wav") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        for voice in voiceStems {
+            let name = voice.lastPathComponent
+            guard !referenced.contains(name) else { continue }
+            let base = String(name.dropLast(".voice.wav".count))
+            let systemURL = dir.appendingPathComponent("\(base).system.wav")
+            let system = fm.fileExists(atPath: systemURL.path) ? systemURL : nil
+            let job = ProcessingJob(
+                id: UUID(),
+                title: Self.recoveredTitle(base: base),
+                input: .liveStems(voiceURL: voice, systemURL: system,
+                                  duration: Self.wavDurationSeconds(voice)),
+                language: defaultLanguage,
+                meeting: nil,
+                sourceKind: .live,
+                importedName: nil,
+                replacingDocumentID: nil,
+                modelOverride: nil,
+                stage: .queued,
+                createdAt: Date()
+            )
+            enqueueJob(job)
+        }
+    }
+
+    /// Approximate seconds from a 16 kHz mono 16-bit PCM WAV (≈32000 B/s).
+    private static func wavDurationSeconds(_ url: URL) -> TimeInterval {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attrs?[.size] as? Int) ?? 0
+        return max(0, Double(size - 44) / 32_000.0)
+    }
+
+    private static func recoveredTitle(base: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd_HHmmss"
+        guard let date = parser.date(from: base) else { return "Recording — \(base)" }
+        let out = DateFormatter()
+        out.dateFormat = "d MMM HH:mm"
+        return "Recording — \(out.string(from: date))"
     }
 
     /// Process-level services that must run regardless of whether the main
@@ -648,6 +734,12 @@ final class AppState {
         startMeetingDetection()
         observeStartRecordingNotifications()
         CalendarMonitor.shared.resumeIfAuthorized()
+        // Recover interrupted recordings at launch — a menu-bar app may run
+        // windowless, so this can't wait for the main window's bootstrap.
+        Task { @MainActor in
+            await loadTranscripts()
+            recoverOrphanedRecordings()
+        }
     }
 
     func loadTranscripts() async {
@@ -796,6 +888,48 @@ final class AppState {
         translator = nil
     }
 
+    /// Lines from the current live-translation session for an instant transcript:
+    /// the recognized original if present, otherwise the translated captions.
+    private func capturedLiveLines() -> [String] {
+        guard let translator else { return [] }
+        let original = translator.originalLines()
+        return original.isEmpty ? translator.translatedLines() : original
+    }
+
+    /// Build a transcript from live-translation text. Its `id` is the recording
+    /// stem base so the follow-up Whisper job (replacingDocumentID == base) can
+    /// overlay diarized segments in place.
+    private static func makeInstantDoc(base: String,
+                                       title: String,
+                                       date: Date,
+                                       duration: TimeInterval,
+                                       language: TranscriptionLanguage,
+                                       meeting: DetectedMeeting?,
+                                       lines: [String]) -> TranscriptDocument {
+        let segments = lines.enumerated().map { index, text in
+            TranscriptSegment(start: Double(index), end: Double(index) + 1,
+                              speakerId: 0, text: text)
+        }
+        return TranscriptDocument(
+            id: base,
+            title: title,
+            date: date,
+            duration: duration,
+            language: language,
+            modelShortName: "Gemini Live",
+            sourceURL: meeting?.url,
+            sourceKind: .live,
+            speakers: [SpeakerLabel(id: 0, name: "Speaker")],
+            segments: segments,
+            audioFileName: "\(base).voice.wav",
+            attendees: nil,
+            summary: nil,
+            summaryModelShortName: nil,
+            summaryGeneratedAt: nil,
+            summaryModelOverride: nil
+        )
+    }
+
     func setMicMuted(_ muted: Bool) {
         isMicMuted = muted
         recorder?.setMicMuted(muted)
@@ -804,6 +938,9 @@ final class AppState {
     func stopRecording() async {
         guard case .recording(let startedAt, let meeting, let language) = recordingState else { return }
         recordingState = .stopping
+        // Capture the live-translation text BEFORE finishing the session — it's
+        // used for an instant transcript so the user doesn't wait for Whisper.
+        let liveLines = capturedLiveLines()
         stopLiveTranslation()
         stopElapsedTimer()
         currentInputDeviceName = nil
@@ -812,6 +949,31 @@ final class AppState {
         do {
             let stems = try await recorder.stop()
             let duration = Date().timeIntervalSince(startedAt)
+
+            // Perf: if live translation produced text, save it as an instant
+            // transcript now (no waiting for Whisper) and have the Whisper job
+            // replace it in the background once it has diarization + timestamps.
+            var replacingID: String? = nil
+            if !liveLines.isEmpty {
+                let base = String(stems.voiceURL.lastPathComponent.dropLast(".voice.wav".count))
+                let instant = Self.makeInstantDoc(
+                    base: base,
+                    title: jobTitle(for: meeting, startedAt: startedAt),
+                    date: startedAt,
+                    duration: duration,
+                    language: language,
+                    meeting: meeting,
+                    lines: liveLines)
+                do {
+                    try TranscriptStore.shared.save(instant, audioSource: nil)
+                    await loadTranscripts()
+                    selectedTranscriptID = instant.id
+                    replacingID = instant.id
+                } catch {
+                    NSLog("Instant transcript save failed: \(error)")
+                }
+            }
+
             let job = ProcessingJob(
                 id: UUID(),
                 title: jobTitle(for: meeting, startedAt: startedAt),
@@ -822,7 +984,7 @@ final class AppState {
                 meeting: meeting,
                 sourceKind: .live,
                 importedName: nil,
-                replacingDocumentID: nil,
+                replacingDocumentID: replacingID,
                 modelOverride: nil,
                 stage: .queued,
                 createdAt: Date()

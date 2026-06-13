@@ -72,7 +72,12 @@ enum AudioSamples {
     /// (PCM Int16, 16 kHz, mono) plus Float32/Int32, and treats a 0-length or
     /// over-long `data` chunk as "everything to end of file".
     private static func loadByParsingWav(_ url: URL) throws -> [Float] {
-        let d = try Data(contentsOf: url, options: .mappedIfSafe)
+        // Read the whole file into heap RAM — NOT memory-mapped. A truncated or
+        // partially-written WAV (the app was force-quit mid-record) can have a
+        // header/length that outruns the bytes actually backed on disk; paging
+        // such a region in via `.mappedIfSafe` faults with SIGBUS even for an
+        // in-bounds `Data` subscript. Copying into RAM makes every access safe.
+        let d = try Data(contentsOf: url)
         guard d.count > 44,
               d[0] == 0x52, d[1] == 0x49, d[2] == 0x46, d[3] == 0x46,   // "RIFF"
               d[8] == 0x57, d[9] == 0x41, d[10] == 0x56, d[11] == 0x45  // "WAVE"

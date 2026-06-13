@@ -5,6 +5,15 @@ struct MenuBarLabel: View {
     let state: AppState
 
     var body: some View {
+        // The menu-bar status item is the one view guaranteed to render at
+        // launch for a menu-bar app (LSUIElement: no window auto-opens, and the
+        // AppDelegate's didFinishLaunching is unreliable under the SwiftUI app
+        // lifecycle). Drive process-level bootstrap from here — it's idempotent,
+        // so a later window `.task` is harmless.
+        icon.task { await state.bootstrap() }
+    }
+
+    @ViewBuilder private var icon: some View {
         switch state.recordingState {
         case .idle:
             if state.isProcessing {

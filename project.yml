@@ -9,6 +9,12 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
+    # Force native Apple Silicon. The dev shell often runs under Rosetta
+    # (uname -m = x86_64), which would otherwise make xcodebuild produce an
+    # x86_64-only binary; running WhisperKit/MLX/Metal inference under Rosetta
+    # SIGSEGVs in the CoreML text decoder. arm64-only keeps it native + stable.
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: NO
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "MeetingTranscriber Local"
