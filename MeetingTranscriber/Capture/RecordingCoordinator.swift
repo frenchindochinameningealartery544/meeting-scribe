@@ -16,13 +16,16 @@ final class RecordingCoordinator {
     func start(captureSystemAudio: Bool,
                onMicLevel: @escaping (Float) -> Void,
                onSystemLevel: @escaping (Float) -> Void,
-               onInputDeviceChange: (() -> Void)? = nil) async throws {
+               onInputDeviceChange: (() -> Void)? = nil,
+               onMicSamples: (([Float]) -> Void)? = nil,
+               onSystemSamples: (([Float]) -> Void)? = nil) async throws {
         let baseURL = Self.makeBaseURL()
         let writer = try StemWriter(baseURL: baseURL)
         self.writer = writer
         self.captureSystem = captureSystemAudio
 
         mic.onSamples = { [weak writer] samples in
+            onMicSamples?(samples)
             guard let writer else { return }
             await writer.appendMic(samples)
         }
@@ -32,6 +35,7 @@ final class RecordingCoordinator {
 
         if captureSystemAudio {
             system.onSamples = { [weak writer] samples in
+                onSystemSamples?(samples)
                 guard let writer else { return }
                 await writer.appendSystem(samples)
             }

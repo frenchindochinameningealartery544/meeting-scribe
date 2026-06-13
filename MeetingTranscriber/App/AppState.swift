@@ -30,6 +30,35 @@ final class AppState {
     }
     var captureSystemAudio: Bool = true
 
+    // MARK: – Live translation (Gemini Live API)
+    private static let kGeminiKey = "gemini-api-key"
+
+    /// Gemini API key, persisted in the Keychain (not UserDefaults).
+    var geminiAPIKey: String = KeychainStore.string(for: AppState.kGeminiKey) ?? "" {
+        didSet { KeychainStore.set(geminiAPIKey, for: Self.kGeminiKey) }
+    }
+    var liveTranslateEnabled: Bool = UserDefaults.standard.bool(forKey: "liveTranslateEnabled") {
+        didSet { UserDefaults.standard.set(liveTranslateEnabled, forKey: "liveTranslateEnabled") }
+    }
+    var liveTargetLanguage: TargetLanguage = {
+        if let raw = UserDefaults.standard.string(forKey: "liveTargetLanguage"),
+           let lang = TargetLanguage(rawValue: raw) { return lang }
+        return .ukrainian
+    }() {
+        didSet { UserDefaults.standard.set(liveTargetLanguage.rawValue, forKey: "liveTargetLanguage") }
+    }
+
+    /// Live session state, updated while recording with translation on.
+    var liveCaptions: [LiveCaption] = []
+    var liveInProgress: String = ""
+    var liveStatus: LiveTranslator.Status = .closed(nil)
+
+    @ObservationIgnored private var translator: LiveTranslator?
+
+    var hasGeminiKey: Bool {
+        !geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     // MARK: – Dictionary (persisted via DictionaryStore)
     var languagePrimes: [String: String] = DictionaryStore.loadPrimes()
     var wordReplacements: [WordReplacement] = DictionaryStore.loadReplacements()
@@ -693,6 +722,7 @@ final class AppState {
         currentSystemRMS = 0
         let coord = RecordingCoordinator()
         self.recorder = coord
+        let liveFeeds = startLiveTranslationIfEnabled()
         do {
             try await coord.start(
                 captureSystemAudio: captureSystemAudio,
@@ -706,7 +736,9 @@ final class AppState {
                     Task { @MainActor in
                         self?.currentInputDeviceName = AudioRecorder.currentInputDeviceName()
                     }
-                }
+                },
+                onMicSamples: liveFeeds.mic,
+                onSystemSamples: liveFeeds.system
             )
             currentInputDeviceName = AudioRecorder.currentInputDeviceName()
             let start = Date()
@@ -716,9 +748,52 @@ final class AppState {
             if let url = meeting?.url { dismissedMeetingURLs.insert(url) }
             detectedMeeting = nil
         } catch {
+            stopLiveTranslation()
             recordingState = .idle
             lastError = "Could not start recording: \(error.localizedDescription)"
         }
+    }
+
+    /// Spins up a LiveTranslator when translation is enabled and a key is set.
+    /// Returns the per-source sample feeds to hand to the RecordingCoordinator:
+    /// the call audio (system) is translated when captured, otherwise the mic.
+    private func startLiveTranslationIfEnabled() -> (mic: (([Float]) -> Void)?, system: (([Float]) -> Void)?) {
+        liveCaptions = []
+        liveInProgress = ""
+        guard liveTranslateEnabled else {
+            translator = nil
+            liveStatus = .closed(nil)
+            return (nil, nil)
+        }
+        // Show the caption bar as soon as translation is on, so there's always
+        // visible feedback — even before any audio, or if the key is missing.
+        CaptionsOverlayController.shared.show(appState: self)
+        guard hasGeminiKey else {
+            translator = nil
+            liveStatus = .closed("Set a Gemini API key in Settings")
+            return (nil, nil)
+        }
+        let t = LiveTranslator(apiKey: geminiAPIKey)
+        t.onUpdate = { [weak self] captions, inProgress in
+            Task { @MainActor in
+                self?.liveCaptions = captions
+                self?.liveInProgress = inProgress
+            }
+        }
+        t.onStatus = { [weak self] status in
+            Task { @MainActor in self?.liveStatus = status }
+        }
+        liveStatus = .connecting
+        t.start(targetCode: liveTargetLanguage.code)
+        translator = t
+        let feed: ([Float]) -> Void = { [weak t] samples in t?.feed(samples) }
+        return captureSystemAudio ? (nil, feed) : (feed, nil)
+    }
+
+    private func stopLiveTranslation() {
+        CaptionsOverlayController.shared.hide()
+        translator?.finish()
+        translator = nil
     }
 
     func setMicMuted(_ muted: Bool) {
@@ -729,6 +804,7 @@ final class AppState {
     func stopRecording() async {
         guard case .recording(let startedAt, let meeting, let language) = recordingState else { return }
         recordingState = .stopping
+        stopLiveTranslation()
         stopElapsedTimer()
         currentInputDeviceName = nil
         guard let recorder = recorder else { recordingState = .idle; return }

@@ -11,6 +11,7 @@ struct RecordView: View {
                 header
                 stateCard
                 controls
+                liveTranslateSection
                 if appState.isProcessing {
                     processingPanel
                 }
@@ -259,6 +260,57 @@ struct RecordView: View {
             default:
                 EmptyView()
             }
+        }
+    }
+
+    // MARK: – Live translation
+    @ViewBuilder
+    private var liveTranslateSection: some View {
+        switch appState.recordingState {
+        case .idle:
+            liveTranslateControls
+        case .recording:
+            if appState.liveTranslateEnabled && appState.hasGeminiKey {
+                LiveTranslatePanel()
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var liveTranslateControls: some View {
+        @Bindable var state = appState
+
+        GlassCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Toggle(isOn: $state.liveTranslateEnabled) {
+                        Label("Live translation", systemImage: "character.bubble")
+                    }
+                    .toggleStyle(.switch)
+
+                    if appState.liveTranslateEnabled {
+                        Spacer()
+                        Picker("Into", selection: $state.liveTargetLanguage) {
+                            ForEach(TargetLanguage.allCases) { lang in
+                                Text("\(lang.flag) \(lang.displayName)").tag(lang)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 200)
+                    }
+                }
+
+                if appState.liveTranslateEnabled && !appState.hasGeminiKey {
+                    Label("Add a Gemini API key in Settings to use live translation.",
+                          systemImage: "key")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

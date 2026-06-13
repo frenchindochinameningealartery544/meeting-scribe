@@ -42,6 +42,22 @@ private struct GeneralSettingsView: View {
             Section("Capture") {
                 Toggle("Include Arc system audio by default", isOn: $state.captureSystemAudio)
             }
+            Section {
+                SecureField("Gemini API key", text: $state.geminiAPIKey)
+                    .textContentType(.password)
+                Picker("Translate into", selection: $state.liveTargetLanguage) {
+                    ForEach(TargetLanguage.allCases) { lang in
+                        Text("\(lang.flag) \(lang.displayName)").tag(lang)
+                    }
+                }
+                LabeledContent("Get a key") {
+                    Link("Google AI Studio", destination: URL(string: "https://aistudio.google.com/apikey")!)
+                }
+            } header: {
+                Text("Live translation")
+            } footer: {
+                Text("Streams meeting audio to Google's Gemini Live API for real-time captions. Billed per minute (~$0.02–0.04). The key is stored in your Keychain. Leave empty to keep everything local.")
+            }
             Section("Storage") {
                 LabeledContent("Transcripts folder") {
                     Button(TranscriptStore.shared.rootURL.path(percentEncoded: false)) {
