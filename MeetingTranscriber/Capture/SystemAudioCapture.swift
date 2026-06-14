@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import ScreenCaptureKit
 import CoreMedia
+import CoreAudio
 import Accelerate
 
 /// Captures system audio from the main display using ScreenCaptureKit.
@@ -10,7 +11,7 @@ import Accelerate
 /// Config mirrors the one used by `silverstein/minutes` (known-working on
 /// macOS 14+/15): `SCRecordingOutput`-friendly video stub + `.audio` output
 /// only — no `.screen` or `.microphone` output types.
-final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
+final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     typealias SampleConsumer = ([Float]) async -> Void
     typealias LevelConsumer = (Float) -> Void
 
@@ -27,7 +28,37 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var didLogFirstCallback = false
     private var sampleCount = 0
 
-    func start(preferredBundleID _: String) async throws {
+    // MARK: Broken-tap recovery
+    // ScreenCaptureKit's audio tap silently breaks after a mid-stream audio
+    // route change (e.g. a conferencing app grabbing the output device when a
+    // call starts): buffers keep arriving but become EXACT zeros forever, so we
+    // get a full-length but empty `.system.wav`. Genuine captured silence is
+    // never exact-zero (there's always a noise floor), so a run of exact-zero
+    // buffers *after* real audio was seen is a reliable "tap died" signal.
+    // Recreating the SCStream restores capture. All these are touched only on
+    // `outputQueue` (the SCStream sample-handler queue + the CoreAudio listener
+    // queue), so no extra locking is needed.
+    private var hasSeenAudio = false
+    private var consecutiveZeroFrames = 0
+    /// Restart once the dead-silence run exceeds ~8 s of frames at 16 kHz.
+    private let zeroRestartThreshold = 16_000 * 8
+    private var isRestarting = false
+    private var restartCount = 0
+    private let maxRestarts = 8
+    private var deviceListenerBlock: AudioObjectPropertyListenerBlock?
+    private var lastPreferredBundleID = ""
+
+    func start(preferredBundleID: String) async throws {
+        restartCount = 0
+        hasSeenAudio = false
+        consecutiveZeroFrames = 0
+        isRestarting = false
+        lastPreferredBundleID = preferredBundleID
+        try await startStream(preferredBundleID: preferredBundleID)
+        installDefaultOutputListener()
+    }
+
+    private func startStream(preferredBundleID _: String) async throws {
         NSLog("SystemAudio: requesting SCShareableContent")
         let content = try await SCShareableContent.excludingDesktopWindows(
             false, onScreenWindowsOnly: true
@@ -63,6 +94,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     func stop() async {
+        removeDefaultOutputListener()
         guard let stream else { return }
         do {
             try await stream.stopCapture()
@@ -72,6 +104,65 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         self.stream = nil
         self.converter = nil
         self.lastInputFormat = nil
+    }
+
+    // MARK: Broken-tap recovery
+
+    /// Tear down and rebuild the SCStream in place. Consumers (`onSamples`,
+    /// `onLevel`) are untouched, so capture resumes transparently — at the cost
+    /// of a short gap in the `.system.wav` while the new stream warms up.
+    private func restartStream() async {
+        let bundleID = lastPreferredBundleID
+        if let s = stream { try? await s.stopCapture() }
+        stream = nil
+        converter = nil
+        lastInputFormat = nil
+        do {
+            try await startStream(preferredBundleID: bundleID)
+            NSLog("SystemAudio: stream restarted (#\(restartCount))")
+        } catch {
+            NSLog("SystemAudio: restart failed: \(error)")
+        }
+        outputQueue.async { [weak self] in
+            self?.consecutiveZeroFrames = 0
+            self?.isRestarting = false
+        }
+    }
+
+    /// Schedule a restart, debounced and capped. Must be called on `outputQueue`.
+    private func scheduleRestart(reason: String) {
+        guard !isRestarting, restartCount < maxRestarts else { return }
+        isRestarting = true
+        restartCount += 1
+        consecutiveZeroFrames = 0
+        NSLog("SystemAudio: restarting stream (#\(restartCount)) — \(reason)")
+        Task { [weak self] in await self?.restartStream() }
+    }
+
+    /// Restart the capture whenever the system's default output device changes —
+    /// the most common trigger for the audio tap dying mid-call.
+    private func installDefaultOutputListener() {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            self?.scheduleRestart(reason: "default output device changed")
+        }
+        deviceListenerBlock = block
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &addr, outputQueue, block)
+    }
+
+    private func removeDefaultOutputListener() {
+        guard let block = deviceListenerBlock else { return }
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &addr, outputQueue, block)
+        deviceListenerBlock = nil
     }
 
     // MARK: SCStreamOutput
@@ -129,6 +220,22 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         var rms: Float = 0
         vDSP_rmsqv(ch, 1, &rms, vDSP_Length(count))
         DispatchQueue.main.async { [weak self] in self?.onLevel?(rms) }
+
+        // Broken-tap watchdog: once we've seen real audio, a sustained run of
+        // EXACT-zero buffers means the SCStream's audio tap has died (a genuine
+        // signal always carries a non-zero noise floor). Recreate the stream.
+        if rms == 0 {
+            if hasSeenAudio {
+                consecutiveZeroFrames += count
+                if consecutiveZeroFrames >= zeroRestartThreshold {
+                    scheduleRestart(reason: "system audio went exact-zero (tap died)")
+                }
+            }
+        } else {
+            hasSeenAudio = true
+            consecutiveZeroFrames = 0
+            restartCount = 0 // healthy again — re-arm the restart budget
+        }
 
         let samples = Array(UnsafeBufferPointer(start: ch, count: count))
         sampleCount += count
