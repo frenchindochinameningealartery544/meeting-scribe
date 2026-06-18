@@ -663,6 +663,7 @@ final class AppState {
     /// process-level services are up (in case the window appeared before
     /// `applicationDidFinishLaunching` wired them).
     func bootstrap() async {
+        NSLog("MT: bootstrap() entered")
         loadGeminiKeyFromKeychain()
         startBackgroundServices()
         await loadTranscripts()
@@ -674,7 +675,7 @@ final class AppState {
     /// Idempotent: once a recovered transcript saves, its stem is referenced by
     /// `audioFileName` and skipped on the next launch.
     private func recoverOrphanedRecordings() {
-        guard !didRecoverOrphans else { return }
+        guard !didRecoverOrphans else { NSLog("MT: recover skipped (already ran)"); return }
         didRecoverOrphans = true
         let fm = FileManager.default
         let dir = TranscriptStore.shared.recordingsDir
@@ -683,9 +684,11 @@ final class AppState {
         let voiceStems = files
             .filter { $0.lastPathComponent.hasSuffix(".voice.wav") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        NSLog("MT: recover — \(voiceStems.count) voice stems, \(referenced.count) referenced")
         for voice in voiceStems {
             let name = voice.lastPathComponent
             guard !referenced.contains(name) else { continue }
+            NSLog("MT: recover — enqueue orphan \(name)")
             let base = String(name.dropLast(".voice.wav".count))
             let systemURL = dir.appendingPathComponent("\(base).system.wav")
             let system = fm.fileExists(atPath: systemURL.path) ? systemURL : nil
@@ -729,8 +732,9 @@ final class AppState {
     /// already granted. Idempotent. Does NOT request calendar access — that
     /// needs an active window (see `bootstrap`).
     func startBackgroundServices() {
-        guard !didStartServices else { return }
+        guard !didStartServices else { NSLog("MT: startBackgroundServices skipped (already ran)"); return }
         didStartServices = true
+        NSLog("MT: startBackgroundServices() running")
         startMeetingDetection()
         observeStartRecordingNotifications()
         CalendarMonitor.shared.resumeIfAuthorized()
@@ -1101,6 +1105,7 @@ final class AppState {
     /// `TranscriptionPipeline`, which uses its own actor-isolated engines, so
     /// the UI stays responsive.
     private func processJob(_ job: ProcessingJob) async {
+        NSLog("MT: processJob START \(job.title)")
         let jobID = job.id
         let language = job.language
         let meeting = job.meeting
@@ -1174,6 +1179,7 @@ final class AppState {
             selectedTranscriptID = docToSave.id
             processingJobs.removeAll { $0.id == jobID }
         } catch {
+            NSLog("MT: processJob FAILED \(job.title): \(error.localizedDescription)")
             lastError = "Transcription failed: \(error.localizedDescription)"
             // Drop the failed job from the queue so the drain continues.
             processingJobs.removeAll { $0.id == jobID }

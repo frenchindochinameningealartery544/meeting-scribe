@@ -32,6 +32,7 @@ final class GeminiLiveClient {
 
     /// Open the socket and send the setup frame. `targetCode` is a BCP-47 code.
     func start(targetCode: String) {
+        NSLog("GeminiLive: start() resuming socket, target=\(targetCode)")
         task.resume()
         // Field placement matters: `inputAudioTranscription` and
         // `outputAudioTranscription` live at the setup top level, while
@@ -56,7 +57,11 @@ final class GeminiLiveClient {
             emit(.closed("Could not encode setup")); return
         }
         task.send(.data(data)) { [weak self] err in
-            if let err { self?.emit(.closed(err.localizedDescription)); return }
+            if let err {
+                NSLog("GeminiLive: setup send FAILED: \(err.localizedDescription)")
+                self?.emit(.closed(err.localizedDescription)); return
+            }
+            NSLog("GeminiLive: setup sent, receiving")
             self?.receive()
         }
     }
@@ -81,6 +86,7 @@ final class GeminiLiveClient {
             guard let self, !self.closed else { return }
             switch result {
             case .failure(let e):
+                NSLog("GeminiLive: receive FAILED (socket closed): \(e.localizedDescription)")
                 self.emit(.closed(e.localizedDescription))
             case .success(let message):
                 self.handle(message)
@@ -98,7 +104,10 @@ final class GeminiLiveClient {
         }
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
 
-        if obj["setupComplete"] != nil { emit(.ready) }
+        if obj["setupComplete"] != nil {
+            NSLog("GeminiLive: setupComplete received → ready")
+            emit(.ready)
+        }
 
         guard let content = obj["serverContent"] as? [String: Any] else { return }
 
