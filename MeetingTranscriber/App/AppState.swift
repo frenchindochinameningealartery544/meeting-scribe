@@ -692,12 +692,20 @@ final class AppState {
             let base = String(name.dropLast(".voice.wav".count))
             let systemURL = dir.appendingPathComponent("\(base).system.wav")
             let system = fm.fileExists(atPath: systemURL.path) ? systemURL : nil
+            // Prefer the language chosen when the recording was made (written to
+            // a `.lang` sidecar by RecordingCoordinator); fall back to the app
+            // default only for older recordings that predate the sidecar.
+            let langURL = dir.appendingPathComponent("\(base).lang")
+            let recoveredLanguage = (try? String(contentsOf: langURL, encoding: .utf8))
+                .flatMap { TranscriptionLanguage(rawValue: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                ?? defaultLanguage
+            NSLog("MT: recover — \(name) language=\(recoveredLanguage.rawValue)")
             let job = ProcessingJob(
                 id: UUID(),
                 title: Self.recoveredTitle(base: base),
                 input: .liveStems(voiceURL: voice, systemURL: system,
                                   duration: Self.wavDurationSeconds(voice)),
-                language: defaultLanguage,
+                language: recoveredLanguage,
                 meeting: nil,
                 sourceKind: .live,
                 importedName: nil,
@@ -822,6 +830,7 @@ final class AppState {
         do {
             try await coord.start(
                 captureSystemAudio: captureSystemAudio,
+                language: language,
                 onMicLevel: { [weak self] rms in
                     Task { @MainActor in self?.currentMicRMS = rms }
                 },

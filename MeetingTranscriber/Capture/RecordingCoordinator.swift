@@ -14,6 +14,7 @@ final class RecordingCoordinator {
     private var captureSystem = false
 
     func start(captureSystemAudio: Bool,
+               language: TranscriptionLanguage,
                onMicLevel: @escaping (Float) -> Void,
                onSystemLevel: @escaping (Float) -> Void,
                onInputDeviceChange: (() -> Void)? = nil,
@@ -23,6 +24,12 @@ final class RecordingCoordinator {
         let writer = try StemWriter(baseURL: baseURL)
         self.writer = writer
         self.captureSystem = captureSystemAudio
+
+        // Persist the chosen language next to the stems so that if this recording
+        // is interrupted and later recovered at launch, recovery transcribes it
+        // in the right language instead of falling back to the app default.
+        let langURL = URL(fileURLWithPath: baseURL.deletingPathExtension().path + ".lang")
+        try? Data(language.rawValue.utf8).write(to: langURL)
 
         mic.onSamples = { [weak writer] samples in
             onMicSamples?(samples)
