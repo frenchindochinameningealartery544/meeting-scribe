@@ -657,12 +657,24 @@ final class AppState {
     private var recorder: RecordingCoordinator?
     private var elapsedTimer: Timer?
     private var didStartServices = false
+    private var didBootstrap = false
 
     // MARK: – Bootstrap
     /// Window-level startup: load transcripts for the UI and make sure the
     /// process-level services are up (in case the window appeared before
     /// `applicationDidFinishLaunching` wired them).
+    ///
+    /// Fired from several triggers for launch reliability AND from
+    /// `applicationDidBecomeActive` on every app activation. The heavy work
+    /// (off-main Keychain read + parsing ~20 MB of transcripts) must run ONCE,
+    /// not on every focus change — re-parsing on each activation froze the UI
+    /// ("постійно вісить"). The guard runs synchronously before the first
+    /// `await`, so concurrent calls on the main actor can't double-enter.
+    /// In-app changes refresh transcripts via their own `loadTranscripts()`
+    /// calls (e.g. after a recording saves), so no per-activation reload is lost.
     func bootstrap() async {
+        if didBootstrap { return }
+        didBootstrap = true
         NSLog("MT: bootstrap() entered")
         loadGeminiKeyFromKeychain()
         startBackgroundServices()
