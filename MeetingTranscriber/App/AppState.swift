@@ -1271,7 +1271,8 @@ final class AppState {
             audioFileName: existing.audioFileName,
             summary: nil,
             summaryModelShortName: nil,
-            summaryGeneratedAt: nil
+            summaryGeneratedAt: nil,
+            speakerEmbeddings: fresh.speakerEmbeddings
         )
     }
 

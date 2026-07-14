@@ -153,8 +153,8 @@ enum MCPTools {
     }
 
     private static func getTranscript(id: String?) -> CallTool.Result {
-        guard let id, !id.isEmpty else {
-            return errorResult("Missing required argument: id")
+        guard let id = sanitizedID(id) else {
+            return errorResult("Missing or invalid argument: id")
         }
         let url = TranscriptStore.shared.rootURL.appendingPathComponent("\(id).md")
         guard let data = try? Data(contentsOf: url),
@@ -165,8 +165,8 @@ enum MCPTools {
     }
 
     private static func getSummary(id: String?) -> CallTool.Result {
-        guard let id, !id.isEmpty else {
-            return errorResult("Missing required argument: id")
+        guard let id = sanitizedID(id) else {
+            return errorResult("Missing or invalid argument: id")
         }
         let docURL = TranscriptStore.shared.rootURL.appendingPathComponent("\(id).json")
         let decoder = JSONDecoder()
@@ -249,6 +249,15 @@ enum MCPTools {
     }
 
     // MARK: - Helpers
+
+    /// Validate a caller-supplied transcript id before using it in a file path.
+    /// Ids are date-time stems (`2026-07-14_130302`); anything with a path
+    /// separator or `..` is rejected so a client can't escape the store dir.
+    private static func sanitizedID(_ id: String?) -> String? {
+        guard let id, !id.isEmpty,
+              !id.contains("/"), !id.contains("\\"), !id.contains("..") else { return nil }
+        return id
+    }
 
     private static func errorResult(_ message: String) -> CallTool.Result {
         CallTool.Result(content: [.text(text: message, annotations: nil, _meta: nil)], isError: true)

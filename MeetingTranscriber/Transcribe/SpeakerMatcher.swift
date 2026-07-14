@@ -24,12 +24,13 @@ enum SpeakerMatcher {
         let valid = embeddings.filter { !$0.isEmpty }
         guard let dim = valid.first?.count, dim > 0 else { return nil }
         var acc = [Float](repeating: 0, count: dim)
+        var n = 0
         for e in valid where e.count == dim {
             for i in 0..<dim { acc[i] += e[i] }
+            n += 1   // count only the vectors we actually summed (dims can differ)
         }
-        let n = Float(valid.count)
         guard n > 0 else { return nil }
-        return acc.map { $0 / n }
+        return acc.map { $0 / Float(n) }
     }
 
     /// True for the default placeholder names ("Remote", "Remote 2", "You").

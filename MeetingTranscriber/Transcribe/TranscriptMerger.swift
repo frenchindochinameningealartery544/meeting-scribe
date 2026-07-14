@@ -47,8 +47,11 @@ enum TranscriptMerger {
             for seg in system {
                 let rawID = bestRawSpeakerID(for: seg, in: systemDiarization)
                            ?? nearestRawSpeakerID(to: seg, in: systemDiarization)
+                // A non-nil rawID is registered by remoteLabel above; a nil one
+                // falls back to id 2 without registering a speaker. If *every*
+                // segment is nil, remap stays empty and the block below still
+                // emits a single "Remote" via max(1, remap.count).
                 let remoteID = rawID.map(remoteLabel(for:)) ?? 2
-                _ = remoteLabel(for: rawID ?? -1) // ensure id exists
                 out.append(TranscriptSegment(start: seg.start,
                                              end: seg.end,
                                              speakerId: remoteID,

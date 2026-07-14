@@ -80,10 +80,16 @@ enum ExportCoordinator {
         } catch {
             throw ExportError.fileWrite("couldn't create folder — \(error.localizedDescription)")
         }
-        let datePrefix = ISO8601DateFormatter.dateOnly.string(from: doc.date)
-        let fileURL = folder.appendingPathComponent("\(datePrefix) \(safeName(doc.title)).md")
+        // `doc.id` is a unique date-time stem ("2026-07-14_130302"), so it both
+        // sorts chronologically in Obsidian and keeps two same-title meetings on
+        // the same day from clobbering each other. Re-exporting the same meeting
+        // overwrites its own note (atomic write avoids a torn file).
+        let fileURL = folder.appendingPathComponent("\(doc.id) \(safeName(doc.title)).md")
+        guard let data = body(for: doc).data(using: .utf8) else {
+            throw ExportError.fileWrite("couldn't encode the summary as UTF-8")
+        }
         do {
-            try body(for: doc).data(using: .utf8)?.write(to: fileURL)
+            try data.write(to: fileURL, options: .atomic)
         } catch {
             throw ExportError.fileWrite(error.localizedDescription)
         }
@@ -150,12 +156,4 @@ enum ExportCoordinator {
         let cleaned = trimmed.components(separatedBy: illegal).joined(separator: "-")
         return cleaned.isEmpty ? "Meeting" : cleaned
     }
-}
-
-private extension ISO8601DateFormatter {
-    static let dateOnly: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withYear, .withMonth, .withDay, .withDashSeparatorInDate]
-        return f
-    }()
 }
