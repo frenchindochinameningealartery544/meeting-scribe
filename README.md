@@ -1,5 +1,19 @@
 # Simple Meeting Scribe
 
+> **Fork notice.** This is a personal fork of
+> [czlonkowski/simple-meeting-scribe](https://github.com/czlonkowski/simple-meeting-scribe)
+> by Romuald Członkowski, used under the MIT License (unchanged — see
+> [LICENSE](LICENSE)). All credit for the original app is his.
+>
+> **What this fork adds/changes:** Ukrainian support (replaces Polish);
+> one-tap summary export to Telegram / Obsidian / email; persistent voice
+> enrollment that auto-labels known speakers across meetings; a
+> `search_transcripts` MCP tool; optional live on-screen subtitles via the
+> Gemini Live API; calendar integration for attendee-based speaker names;
+> menu-bar-only operation; and assorted recording/stability fixes. The
+> sections below are largely the original author's and still describe the
+> shared core.
+
 A personal, 100% local meeting transcriber for macOS. I built it for myself.
 I'm putting the source out there because other people asked — **not** because
 I'm trying to ship a product.
