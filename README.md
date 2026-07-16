@@ -41,6 +41,30 @@ licensed; fork it, strip it, reshape it — it's yours.
 - Drag any `.mp4` / `.m4a` / `.mov` / `.wav` / `.mp3` onto the window to
   transcribe an existing recording.
 
+## What this fork adds
+
+On top of the original, this fork adds:
+
+- **Ukrainian support** — replaces Polish. Transcription runs Whisper
+  large-v3 for Ukrainian (turbo for English) by default; a per-term glossary
+  + word-replacement pass cleans up domain jargon Whisper can't infer.
+- **Summary export** — send a generated summary straight to a **Telegram**
+  chat (Bot API), an **Obsidian** vault (as a dated markdown note), or a
+  pre-filled **email** draft. Configure the destinations in Settings; nothing
+  is sent unless you opt in.
+- **Voice enrollment** — remember a speaker's voice once ("Andrii") and future
+  meetings auto-label the same voice instead of "Remote 1/2". Uses FluidAudio's
+  256-dim speaker embeddings + cosine matching, all on-device.
+- **Transcript search** — a `search_transcripts` MCP tool for full-text search
+  across every stored transcript, so an MCP client (e.g. Claude Code) can
+  answer "what did we decide about X?" across all your meetings.
+- **Live subtitles** — optional on-screen captions during a call via the Gemini
+  Live API. Off by default; the app stays fully local otherwise.
+- **Calendar integration** — pulls attendee names from the live calendar event
+  as candidate speaker names.
+- **Menu-bar-only** operation, plus recording/stability fixes (system-audio tap
+  recovery, crash-safe recovery of interrupted recordings, arm64 build fixes).
+
 ## What it does not do
 
 - No cloud. No telemetry. No account. No network calls except the first-run
