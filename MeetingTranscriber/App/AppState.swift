@@ -105,6 +105,14 @@ final class AppState {
     var obsidianVaultPath: String = UserDefaults.standard.string(forKey: "obsidianVaultPath") ?? "" {
         didSet { UserDefaults.standard.set(obsidianVaultPath, forKey: "obsidianVaultPath") }
     }
+    static let kSlackWebhook = "slack-webhook-url"
+    var slackWebhookURL: String = "" {
+        didSet {
+            guard !isLoadingSlackWebhook else { return }    // skip persist on async load-in
+            KeychainStore.set(slackWebhookURL, for: Self.kSlackWebhook)
+        }
+    }
+    @ObservationIgnored private var isLoadingSlackWebhook = false
 
     /// Load the Telegram bot token from the Keychain off-main, mirroring the
     /// Gemini key pattern so a hanging `securityd` round-trip can't stall launch.
@@ -117,6 +125,20 @@ final class AppState {
             self.isLoadingTelegramToken = true
             self.telegramBotToken = token
             self.isLoadingTelegramToken = false
+        }
+    }
+
+    /// Load the Slack webhook URL from the Keychain off-main, same pattern as the
+    /// Telegram token so a slow `securityd` call can't stall launch.
+    func loadSlackWebhookFromKeychain() {
+        Task { [weak self] in
+            let webhook = await Task.detached(priority: .utility) {
+                KeychainStore.string(for: AppState.kSlackWebhook) ?? ""
+            }.value
+            guard let self, self.slackWebhookURL.isEmpty, !webhook.isEmpty else { return }
+            self.isLoadingSlackWebhook = true
+            self.slackWebhookURL = webhook
+            self.isLoadingSlackWebhook = false
         }
     }
 
@@ -724,6 +746,7 @@ final class AppState {
         NSLog("MT: bootstrap() entered")
         loadGeminiKeyFromKeychain()
         loadTelegramTokenFromKeychain()
+        loadSlackWebhookFromKeychain()
         startBackgroundServices()
         await loadTranscripts()
         recoverOrphanedRecordings()

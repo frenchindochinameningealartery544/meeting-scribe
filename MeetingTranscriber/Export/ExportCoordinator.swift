@@ -10,6 +10,7 @@ enum ExportCoordinator {
         case noSummary
         case missingConfig(String)
         case telegram(String)
+        case slack(String)
         case fileWrite(String)
 
         var errorDescription: String? {
@@ -17,6 +18,7 @@ enum ExportCoordinator {
             case .noSummary:            return "This transcript has no summary yet — run one first."
             case .missingConfig(let s): return s
             case .telegram(let s):      return "Telegram: \(s)"
+            case .slack(let s):         return "Slack: \(s)"
             case .fileWrite(let s):     return "Obsidian: \(s)"
             }
         }
@@ -57,6 +59,38 @@ enum ExportCoordinator {
             guard http.statusCode == 200 else {
                 let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["description"] as? String
                 throw ExportError.telegram(detail ?? "HTTP \(http.statusCode)")
+            }
+        }
+    }
+
+    // MARK: - Slack
+
+    /// POST the summary to a Slack channel via an Incoming Webhook. The webhook URL
+    /// encodes both the target channel and a secret token, so it lives in the
+    /// Keychain. Long summaries are split into ≤3500-char messages (Slack truncates
+    /// a single `text` field around 40k and renders best in smaller chunks). Sent as
+    /// plain text — Slack's mrkdwn leaves our Markdown readable without mangling it.
+    static func sendToSlack(_ doc: TranscriptDocument, webhookURL: String) async throws {
+        let raw = webhookURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { throw ExportError.missingConfig("Add a Slack webhook URL in Settings.") }
+        guard let url = URL(string: raw), url.scheme == "https",
+              url.host?.hasSuffix("slack.com") == true else {
+            throw ExportError.slack("that doesn't look like a Slack webhook URL (expected https://hooks.slack.com/…).")
+        }
+        guard doc.summary?.isEmpty == false else { throw ExportError.noSummary }
+
+        for chunk in chunked(body(for: doc), max: 3500) {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["text": chunk])
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw ExportError.slack("no response")
+            }
+            guard http.statusCode == 200 else {
+                let detail = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                throw ExportError.slack(detail?.isEmpty == false ? detail! : "HTTP \(http.statusCode)")
             }
         }
     }

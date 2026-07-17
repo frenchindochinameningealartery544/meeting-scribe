@@ -76,11 +76,13 @@ private struct GeneralSettingsView: View {
                 SecureField("Telegram bot token", text: $state.telegramBotToken)
                     .textContentType(.password)
                 TextField("Telegram chat ID", text: $state.telegramChatID)
+                SecureField("Slack webhook URL", text: $state.slackWebhookURL)
+                    .textContentType(.password)
                 TextField("Obsidian vault path", text: $state.obsidianVaultPath)
             } header: {
                 Text("Send summaries")
             } footer: {
-                Text("Optional destinations for the “Send…” button on a summary. Telegram uses a bot you create with @BotFather; the token is stored in your Keychain. Obsidian writes a note under “Meeting Summaries/” in the vault. Leave empty to disable.")
+                Text("Optional destinations for the “Send…” button on a summary. Telegram uses a bot you create with @BotFather; the token is stored in your Keychain. Slack uses an Incoming Webhook (Slack app → Incoming Webhooks → Add to channel); the URL is stored in your Keychain. Obsidian writes a note under “Meeting Summaries/” in the vault. Leave empty to disable.")
             }
             Section {
                 if state.enrolledSpeakers.isEmpty {

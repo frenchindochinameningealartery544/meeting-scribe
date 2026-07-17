@@ -628,6 +628,9 @@ struct TranscriptDetailView: View {
                 Task { await sendSummaryToTelegram(doc) }
             } label: { Label("Telegram", systemImage: "paperplane") }
             Button {
+                Task { await sendSummaryToSlack(doc) }
+            } label: { Label("Slack", systemImage: "number") }
+            Button {
                 sendSummaryToObsidian(doc)
             } label: { Label("Obsidian note", systemImage: "doc.text") }
             Button {
@@ -642,7 +645,7 @@ struct TranscriptDetailView: View {
         .buttonStyle(.glass)
         .controlSize(.small)
         .sensoryFeedback(.success, trigger: summarySent) { _, new in new }
-        .help("Send this summary to Telegram, Obsidian, or an email draft")
+        .help("Send this summary to Telegram, Slack, Obsidian, or an email draft")
     }
 
     private func sendSummaryToTelegram(_ doc: TranscriptDocument) async {
@@ -650,6 +653,15 @@ struct TranscriptDetailView: View {
             try await ExportCoordinator.sendToTelegram(doc,
                                                        token: appState.telegramBotToken,
                                                        chatID: appState.telegramChatID)
+            flashSummarySent()
+        } catch {
+            appState.lastError = errorText(error)
+        }
+    }
+
+    private func sendSummaryToSlack(_ doc: TranscriptDocument) async {
+        do {
+            try await ExportCoordinator.sendToSlack(doc, webhookURL: appState.slackWebhookURL)
             flashSummarySent()
         } catch {
             appState.lastError = errorText(error)
